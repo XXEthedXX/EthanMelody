@@ -1,7 +1,8 @@
 // Ethan B - 8/3/2023
 // Require the necessary discord.js classes
 const { Client, Events, GatewayIntentBits } = require('discord.js');
-const { token } = require('./config.json');
+const { token } = require('../config.json');
+const ejoin = require('../commands/ejoin.js');
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -12,5 +13,14 @@ client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
 });
 
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isCommand()) return;
+
+    const { commandName } = interaction;
+
+    if (commandName == "ejoin") {
+        await ejoin.execute(interaction);
+    }
+});
 // Log in to Discord with your client's token
 client.login(token);
