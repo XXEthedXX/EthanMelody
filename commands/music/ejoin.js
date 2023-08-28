@@ -1,6 +1,3 @@
-// Todo: ejoin makes bot join user when called
-// Todo: if already in call, reply to user-only, already in call
-
 const { SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, getVoiceConnections } = require('@discordjs/voice');
 
@@ -15,7 +12,8 @@ module.exports = {
 		// if voicechannel is empty, reply join voice channel, end command
 		if (!currVoiceChannel) {
 			return interaction.reply('Please join a voice channel.');
-		} else {
+		}
+		else {
 			console.log('Current VC: ', currVoiceChannel.id);
 		}
 
