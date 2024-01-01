@@ -4,6 +4,8 @@
 // const optionData = JSON.stringify(interaction.options.get('search-or-link').value);
 // Todo: Create audio player
 // Todo: Use (yt-search) to find song link or search YT and add song to queue
+// take user input, then input as variable into yt-search and find list of likely songs and their length
+// allow user to click discord button to select song (and throw into queue, or play if queue is empty)
 // Todo: Use (ytdl-core) to "download" and stream song through bot
 // Todo: Continue playing through queue until out of songs
 
@@ -32,8 +34,18 @@ module.exports = {
 		// create a queue to hold songs
 		let queue = [];
 
-		// take user search/link
-		let searchterm = interaction.options.get(`search-or-link`).value;
-		ytsearch.
+		try {
+			// take user search/link
+			let searchterm = interaction.options.get('search-or-link').value;
+			// search using yt-search
+			let searchresults = await ytsearch(searchterm);
+			console.log('This is the searchterm: ' + searchterm);
+			console.log('"searchresults are below....."');
+			console.log(searchresults);
+			await interaction.reply(`You searched: ${searchterm}.`);
+		}
+		catch (error) {
+			await interaction.reply(`Something fucked up`);
+		}
 	},
 };
