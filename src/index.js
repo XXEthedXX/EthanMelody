@@ -14,6 +14,9 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+// client.queues = new Map();
+// initialize in startup instead of eplay
+
 const foldersPath = path.join(__dirname, '..', 'commands');
 console.log('foldersPath: ', foldersPath);
 const commandFolders = fs.readdirSync(foldersPath);
@@ -29,6 +32,7 @@ for (const folder of commandFolders) {
 		// Set a new item in the Collection with the key as the command name and the value as the exported module
 		if ('data' in command && 'execute' in command) {
 			client.commands.set(command.data.name, command);
+			console.log(`Loaded Command: ${command.data.name}`);
 		}
 		else {
 			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
@@ -52,3 +56,6 @@ for (const file of eventFiles) {
 
 // Log in to Discord
 client.login(token);
+
+// Export the client object for use in other files
+module.exports = { client };

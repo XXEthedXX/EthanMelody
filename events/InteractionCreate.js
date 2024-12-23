@@ -6,6 +6,14 @@ module.exports = {
 		if (!interaction.isChatInputCommand()) return;
 
 		const command = interaction.client.commands.get(interaction.commandName);
+		console.log('interaction.client: ');
+		console.log(interaction.client);
+		console.log('interaction.client.commands: ');
+		console.log(interaction.client.commands);
+		console.log('command: ');
+		console.log(command);
+		console.log('interaction.commandName: ');
+		console.log(interaction.commandName);
 
 		if (!command) {
 			console.error(`No command matching ${interaction.commandName} was found.`);

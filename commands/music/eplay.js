@@ -10,13 +10,18 @@
 // Todo: Use (ytdl-core) to "download" and stream song through bot
 // Todo: Continue playing through queue until out of songs
 // installed ffmpeg-static, libsodium-wrappers
+// Youtube dropping ban hammer on ytdl by 403'ing requests??
+// fix using this https://stackoverflow.com/questions/78743288/403-forbidden-when-using-ytdl-core
 
 const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
-const { joinVoiceChannel, getVoiceConnections, createAudioPlayer, createAudioResource, entersState, AudioPlayerStatus,
-	StreamType
-} = require('@discordjs/voice');
+const { joinVoiceChannel, getVoiceConnections, createAudioPlayer, createAudioResource, entersState, AudioPlayerStatus, StreamType } = require('@discordjs/voice');
 const ytsearch = require('yt-search');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
+
+const queueManager = require('../../src/queueManager');
+// const client = require('../../src/index.js');
+// should point to index.js
+// const { queues } = require('../../src/index.js');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -36,8 +41,16 @@ module.exports = {
 			return interaction.reply('You\'re not in a voice channel bud...');
 		}
 
-		// create a queue to hold songs
-		const queue = [];
+		// create a queue if server doesnt have one already
+		const guildID = interaction.guild.id;
+
+		if (!queueManager.hasQueue(guildID)) {
+			// client.queues.set(guildID, { songs: [], player: null, connection: null });
+
+		}
+
+		// get guilds queue
+		const guildQ = queueManager.getQueue(guildID);
 
 		// function to push requested song into queue
 		async function addQueue(songURL) {
@@ -50,49 +63,99 @@ module.exports = {
 				length: songInfo.videoDetails.lengthSeconds,
 				artist: songInfo.videoDetails.author.name,
 			};
-			queue.push(song);
-			if (queue.length === 1) {
-				const connection = joinVoiceChannel({
-					channelId: currVoiceChannel.id,
-					guildId: currVoiceChannel.guild.id,
-					adapterCreator: currVoiceChannel.guild.voiceAdapterCreator,
-				});
-				// start playing song, if	 empty when song is in there
-				play(connection, song);
+
+			guildQ.songs.push(song);
+
+			// start playing only if first song in queue
+			if (guildQ.songs.length === 1) {
+				if (!guildQ.connection) {
+					guildQ.connection = joinVoiceChannel({
+						channelId: currVoiceChannel.id,
+						guildId: currVoiceChannel.guild.id,
+						adapterCreator: currVoiceChannel.guild.voiceAdapterCreator,
+					});
+				}
+
+				if (!guildQ.player) {
+					guildQ.player = createAudioPlayer();
+					guildQ.connection.subscribe(guildQ.player);
+
+					guildQ.player.on(AudioPlayerStatus.Idle, () => {
+						guildQ.songs.shift();
+						if (guildQ.songs.length > 0) {
+							playNext();
+						}
+						else {
+							guildQ.connection.destroy();
+							queueManager.deleteQueue(guildID);
+						}
+					});
+
+					guildQ.player.on('error', (error) => {
+						console.error('Error:', error.message);
+					});
+				}
+
+				// play next song
+				playNext();
 			}
 		}
 
 		// create an audio player
-		const player = createAudioPlayer();
+		// const player = createAudioPlayer();
 
-		// An AudioPlayer will always emit an "error" event with a .resource property
-		player.on('error', error => {
-			console.error('Error:', error.message, 'with track', error.resource.metadata.title);
-		});
+		// AudioPlayer will always emit an "error" event with a .resource property
+		// player.on('error', error => {
+		// 	console.error('Error:', error, 'with track', error.resource.metadata);
+		// });
 
 		// function to play songs in player
 		// eslint-disable-next-line no-inline-comments
-		async function play(connection, song) { // takes in connection, and song object from addQueue
-			const stream = ytdl(song.link, { filter: 'audioonly' });
-			console.log('stream created (made of ytdl song.link and "audioonly" filter 1/4');
-			const resource = createAudioResource(stream, { inputType: StreamType.Arbitrary });
-			console.log('resource created 2/4');
-			const subscription = connection.subscribe(player);
-			console.log('player start the music first, 3/4');
-			player.play(resource);
-			console.log('then create the subscription and subscribe 4/4');
+		// async function playNext(connection, song) { // takes in connection, and song object from addQueue
+		// 	const stream = ytdl(song.link, { filter: 'audioonly' });
+		// 	console.log('stream created (made of ytdl song.link and "audioonly" filter 1/4');
+		// 	const resource = createAudioResource(stream, { inputType: StreamType.Arbitrary });
+		// 	console.log('resource created 2/4');
+		// 	const subscription = connection.subscribe(player);
+		// 	console.log('player start the music first, 3/4');
+		// 	player.play(resource);
+		// 	console.log('then create the subscription and subscribe 4/4');
+		//
+		// 	// handle end of the stream
+		// 	stream.on('close', () => {
+		// 		console.log('Connection ended...');
+		//
+		// 	});
+		//
+		// }
 
-			// handle end of the stream
-			stream.on('close', () => {
-				console.log('Connection ended...');
+		async function playNext() {
+			// try grabbing first song if exists
+			const nextSong = guildQ.songs[0];
+			if (!nextSong) { return; }
 
-			});
+			// try creating a connection to the voice channel
+			try {
+				const stream = ytdl(nextSong.link, { filter: 'audioonly' });
+				console.log('stream created (made of ytdl song.link and "audioonly" filter 1/4');
+				const resource = createAudioResource(stream, { inputType: StreamType.Arbitrary });
+				console.log('resource created 2/4');
+				guildQ.player.play(resource);
+				console.log('connecting to player, and passed in resource 3/4');
+				console.log(`Now playing: ${nextSong.link.name}, requested by TBD`);
+
+				guildQ.player.on('stateChange', (oldState, newState) => {
+					console.log(`Audio player transitioned from ${oldState.status} to ${newState.status}`);
+				});
+
+			} catch (e) {
+				console.log(`Error while attempting to play: ${nextSong.link.name}`);
+				guildQ.songs.shift();
+				nextSong();
+			}
 
 		}
 
-		player.on('stateChange', (oldState, newState) => {
-			console.log(`Audio player transitioned from ${oldState.status} to ${newState.status}`);
-		});
 
 		try {
 			// take user search/link
