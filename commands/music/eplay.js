@@ -12,6 +12,7 @@
 // installed ffmpeg-static, libsodium-wrappers
 // Youtube dropping ban hammer on ytdl by 403'ing requests??
 // fix using this https://stackoverflow.com/questions/78743288/403-forbidden-when-using-ytdl-core
+// Doesn't play links properly??
 
 const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const { joinVoiceChannel, getVoiceConnections, createAudioPlayer, createAudioResource, entersState, AudioPlayerStatus, StreamType } = require('@discordjs/voice');
@@ -46,7 +47,7 @@ module.exports = {
 
 		if (!queueManager.hasQueue(guildID)) {
 			// client.queues.set(guildID, { songs: [], player: null, connection: null });
-
+			// TODO: chat what was I trying to do here
 		}
 
 		// get guilds queue
@@ -101,34 +102,6 @@ module.exports = {
 			}
 		}
 
-		// create an audio player
-		// const player = createAudioPlayer();
-
-		// AudioPlayer will always emit an "error" event with a .resource property
-		// player.on('error', error => {
-		// 	console.error('Error:', error, 'with track', error.resource.metadata);
-		// });
-
-		// function to play songs in player
-		// eslint-disable-next-line no-inline-comments
-		// async function playNext(connection, song) { // takes in connection, and song object from addQueue
-		// 	const stream = ytdl(song.link, { filter: 'audioonly' });
-		// 	console.log('stream created (made of ytdl song.link and "audioonly" filter 1/4');
-		// 	const resource = createAudioResource(stream, { inputType: StreamType.Arbitrary });
-		// 	console.log('resource created 2/4');
-		// 	const subscription = connection.subscribe(player);
-		// 	console.log('player start the music first, 3/4');
-		// 	player.play(resource);
-		// 	console.log('then create the subscription and subscribe 4/4');
-		//
-		// 	// handle end of the stream
-		// 	stream.on('close', () => {
-		// 		console.log('Connection ended...');
-		//
-		// 	});
-		//
-		// }
-
 		async function playNext() {
 			// try grabbing first song if exists
 			const nextSong = guildQ.songs[0];
@@ -143,6 +116,11 @@ module.exports = {
 				guildQ.player.play(resource);
 				console.log('connecting to player, and passed in resource 3/4');
 				console.log(`Now playing: ${nextSong.link.name}, requested by TBD`);
+
+				// update user & discord add length eventually
+				await interaction.channel.send({
+					content: `🎶 **Now Playing:**\n**${nextSong.title}** by **${nextSong.artist}**\nLength: ${nextSong.length}`,
+				});
 
 				guildQ.player.on('stateChange', (oldState, newState) => {
 					console.log(`Audio player transitioned from ${oldState.status} to ${newState.status}`);
@@ -228,7 +206,8 @@ module.exports = {
 			try {
 				const waitForUserClick = await userResponse.awaitMessageComponent({ filter: collectorFilter, time: 15_000 });
 
-				waitForUserClick.update({ content: `Here is the waitForUserClick: ${waitForUserClick}`, components: [] });
+				waitForUserClick.update(
+					{ content: `Adding to the queue: **${waitForUserClick.values[0]}**.`, components: [] });
 				console.log('WaitForUserClick Things: ');
 				console.log(waitForUserClick);
 				// Figure out which button they clicked (resultX), check customId of user click
